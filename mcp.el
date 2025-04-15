@@ -620,12 +620,10 @@ Returns a list of parsed argument plists."
                         (length required))))
     (cl-mapcar #'(lambda (arg-value required-name)
                    (pcase-let* ((`(,key ,value) arg-value))
-                     (append (list :name
-                                   (substring (symbol-name key)
-                                              1))
-                             (mcp--parse-json-schema value)
-                             (unless required-name
-                               (list :optional t)))))
+                     `(:name ,(substring (symbol-name key) 1)
+                       ,@value      ; pass them as-it without reparsing
+                       ,@(unless required-name
+                           `(:optional t)))))
                (seq-partition properties 2)
                (append required
                        (when (> need-length 0)
