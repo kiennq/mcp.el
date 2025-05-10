@@ -65,7 +65,7 @@ receives no arguments."
                        :resources-callback
                        #'(lambda (_ _)
                            (mcp-hub-update))
-                       :resources-templates-callback
+                       :template-resources-callback
                        #'(lambda (_ _)
                            (mcp-hub-update))
                        :error-callback
