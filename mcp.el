@@ -30,6 +30,7 @@
 (require 'jsonrpc)
 (require 'cl-lib)
 (require 'url)
+(require 'map)
 
 (defconst *MCP-LAST-VERSION* "2024-11-05"
   "MCP support version.")
@@ -296,12 +297,12 @@ The message is sent differently based on connection type:
                                  (unless (jsonrpc--process connection)
                                    (mcp--connect-sse connection))
                                  (unless (mcp--sse connection)
-                                   (when-let* ((content-type (plist-get headers-plist :content-type)))
-                                     (when (string= content-type "text/event-stream"))
-                                     (let ((event )
-                                           (id)
-                                           (data)
-                                           (json))
+                                   (pcase-let (((map :content-type) headers-plist)
+                                               (event)
+                                               (id)
+                                               (data)
+                                               (json))
+                                     (when (string= content-type "text/event-stream")
                                        (dolist (line (split-string body "\n"))
                                          (cond
                                           ((string-prefix-p "event: " line)
@@ -317,7 +318,7 @@ The message is sent differently based on connection type:
                                                                          :false-object :json-false))
                                          (json-parse-error
                                           ;; parse error and not because of incomplete json
-                                          (jsonrpc--warn "Invalid JSON: %s\t %s" (cdr err) json-str)))
+                                          (jsonrpc--warn "Invalid JSON: %s\t %s" (cdr err) data)))
                                        (when json
                                          (jsonrpc-connection-receive connection json)))))))
                              (kill-buffer))))))
@@ -402,7 +403,7 @@ The message is sent differently based on connection type:
                        (cl-incf parsed-index)))))
                (cond
                 ((string-prefix-p "mcp-session-id" line)
-                 (setq mcp--session-id
+                 (setf (mcp--session-id conn)
                        (string-trim (substring line 15))))
                 ((and (<= (+ line-index 1) (length lines))
                       (string-prefix-p "event:" (elt lines (+ line-index 1)))))
@@ -615,7 +616,7 @@ Returns nil if URL is invalid or not HTTP/HTTPS."
                         80))
               :path filename)))))
 
-(defun mcp--send-initial-message (connection)
+(defun mcp--send-initial-message (connection &optional error-callback)
   (mcp-async-initialize-message
    connection
    #'(lambda (protocolVersion serverInfo capabilities)
@@ -766,7 +767,7 @@ in the `mcp-server-connections` hash table for future reference."
                        (when (or (equal connection-type 'stdio)
                                  (equal connection-type 'http))
                          (cancel-timer initial-timer)
-                         (mcp--send-initial-message connection)
+                         (mcp--send-initial-message connection error-callback)
                          (when (> initial-use-time mcp-server-start-time)
                            (mcp-stop-server name)
                            (cancel-timer initial-timer)
