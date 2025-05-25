@@ -381,12 +381,12 @@ The message is sent differently based on connection type:
                                  'jsonrpc-pending)))
              (message-rest-size (or (process-get proc 'jsonrpc-message-rest-size)
                                     0))
-             (data (if (equal type 'stdio)
-                       (with-current-buffer buf
-                         (goto-char (point-max))
-                         (insert string)
-                         (buffer-string))
-                     string))
+             (data (with-current-buffer buf
+                     (if (= (point-min) (point-max))
+                         string
+                       (goto-char (point-max))
+                       (insert string)
+                       (buffer-string))))
              (parsed-messages nil)
              (separator (if (equal type 'stdio)
                             "\n"
@@ -469,17 +469,11 @@ The message is sent differently based on connection type:
 
         (setq parsed-messages (nreverse parsed-messages))
 
-        (when (equal type 'stdio)
-          (with-current-buffer buf (erase-buffer)))
+        (with-current-buffer buf (erase-buffer))
         ;; Add messages to MQUEUE
         (dolist (msg parsed-messages)
           (let ((json nil)
-                (json-str (with-current-buffer buf
-                            (if (= (point-min) (point-max))
-                                msg
-                              (goto-char (point-max))
-                              (insert msg)
-                              (buffer-string)))))
+                (json-str msg))
             (condition-case-unless-debug err
                 (when (stringp json-str)
                   (setq json
